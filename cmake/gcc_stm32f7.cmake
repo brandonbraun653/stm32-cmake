@@ -1,12 +1,26 @@
-SET(CMAKE_C_FLAGS "-mthumb -fno-builtin -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=softfp -Wall -std=gnu99 -ffunction-sections -fdata-sections -fomit-frame-pointer -mabi=aapcs -fno-unroll-loops -ffast-math -ftree-vectorize" CACHE INTERNAL "c compiler flags")
-SET(CMAKE_CXX_FLAGS "-mthumb -fno-builtin -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=softfp -Wall -std=c++11 -ffunction-sections -fdata-sections -fomit-frame-pointer -mabi=aapcs -fno-unroll-loops -ffast-math -ftree-vectorize" CACHE INTERNAL "cxx compiler flags")
-SET(CMAKE_ASM_FLAGS "-mthumb -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=softfp -x assembler-with-cpp" CACHE INTERNAL "asm compiler flags")
+# SET(CMAKE_C_FLAGS "-mthumb -fno-builtin -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=softfp -Wall -std=gnu99 -ffunction-sections -fdata-sections -fomit-frame-pointer -mabi=aapcs -fno-unroll-loops -ffast-math -ftree-vectorize" CACHE INTERNAL "c compiler flags")
+# SET(CMAKE_CXX_FLAGS "-mthumb -fno-builtin -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=softfp -Wall -std=c++11 -ffunction-sections -fdata-sections -fomit-frame-pointer -mabi=aapcs -fno-unroll-loops -ffast-math -ftree-vectorize" CACHE INTERNAL "cxx compiler flags")
+# SET(CMAKE_ASM_FLAGS "-mthumb -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=softfp -x assembler-with-cpp" CACHE INTERNAL "asm compiler flags")
 
-SET(CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections -mthumb -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=softfp -mabi=aapcs" CACHE INTERNAL "executable linker flags")
-SET(CMAKE_MODULE_LINKER_FLAGS "-mthumb -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=softfp -mabi=aapcs" CACHE INTERNAL "module linker flags")
-SET(CMAKE_SHARED_LINKER_FLAGS "-mthumb -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=softfp -mabi=aapcs" CACHE INTERNAL "shared linker flags")
+# SET(CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections -mthumb -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=softfp -mabi=aapcs" CACHE INTERNAL "executable linker flags")
+# SET(CMAKE_MODULE_LINKER_FLAGS "-mthumb -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=softfp -mabi=aapcs" CACHE INTERNAL "module linker flags")
+# SET(CMAKE_SHARED_LINKER_FLAGS "-mthumb -mcpu=cortex-m7 -mfpu=fpv5-sp-d16 -mfloat-abi=softfp -mabi=aapcs" CACHE INTERNAL "shared linker flags")
 SET(STM32_CHIP_TYPES 745xx 746xx 756xx 767xx 777xx 769xx 779xx CACHE INTERNAL "stm32f7 chip types")
 SET(STM32_CODES "745.." "746.." "756.." "767.." "777.." "769.." "779..")
+
+set(STM32F7_COMPILE_OPTIONS
+    -fno-common
+    -fmessage-length=0
+    -fno-exceptions
+    -ffunction-sections
+    -fdata-sections
+    -Wall
+    -mthumb 
+    -mcpu=cortex-m7 
+    -mfloat-abi=hard
+    -mfpu=fpv5-sp-d16
+)
+set_property(GLOBAL PROPERTY STM32_COMPILER_OPTIONS ${STM32F7_COMPILE_OPTIONS})
 
 MACRO(STM32_GET_CHIP_TYPE CHIP CHIP_TYPE)
     STRING(REGEX REPLACE "^[sS][tT][mM]32[fF](7[4567][5679].[EGI]).*$" "\\1" STM32_CODE ${CHIP})
@@ -19,6 +33,13 @@ MACRO(STM32_GET_CHIP_TYPE CHIP CHIP_TYPE)
         MATH(EXPR INDEX "${INDEX}+1")
     ENDFOREACH()
     SET(${CHIP_TYPE} ${RESULT_TYPE})
+
+    if(NOT ${CHIP_TYPE} OR ${CHIP_TYPE} STREQUAL "")
+        MESSAGE(FATAL_ERROR "Invalid/unsupported STM32F4 chip type")
+    else()
+        MESSAGE(STATUS "Found supported STM32F4 chip type: ${RESULT_TYPE}")
+    endif()
+    
 ENDMACRO()
 
 MACRO(STM32_GET_CHIP_PARAMETERS CHIP FLASH_SIZE RAM_SIZE CCRAM_SIZE)
