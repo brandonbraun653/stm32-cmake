@@ -51,22 +51,6 @@ set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
-if(NOT TARGET debug)
-    ADD_CUSTOM_TARGET(debug
-        COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Debug ${CMAKE_SOURCE_DIR}
-        COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target all
-        COMMENT "Creating the executable in the debug mode."
-    )
-endif()
-
-if(NOT TARGET release)
-    ADD_CUSTOM_TARGET(release
-        COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Release ${CMAKE_SOURCE_DIR}
-        COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target all
-        COMMENT "Creating the executable in the release mode."
-    )
-endif()
-
 # Assign a dbg tag to delineate debug build outputs
 if(NOT CMAKE_DEBUG_POSTFIX)
     set(CMAKE_DEBUG_POSTFIX _dbg)

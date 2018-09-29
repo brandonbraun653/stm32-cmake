@@ -55,19 +55,3 @@ FUNCTION(STM32_PRINT_SIZE_OF_TARGETS TARGET)
     ENDIF()
     add_custom_command(TARGET ${TARGET} POST_BUILD COMMAND ${CMAKE_SIZE} ${FILENAME})
 ENDFUNCTION()
-
-## Validate the STM32_CHIP and import definitions
-FUNCTION(STM32_VALIDATE_DEVICE)
-    # Find the appropriate device cmake file
-    STRING(TOLOWER ${STM32_FAMILY} STM32_FAMILY_LOWER)
-    include(${STM32_CMAKE_DIR}/gcc_stm32${STM32_FAMILY_LOWER}.cmake)
-    STM32_GET_CHIP_TYPE(${STM32_CHIP} STM32_CHIP_TYPExx)
-
-    # Generate the correct device definition for stm32 hal compiler
-    string(TOUPPER ${STM32_CHIP} STM32_HAL_DEVICE_DEFINITION)
-    string(REPLACE "XX" "xx" STM32_HAL_DEVICE_DEFINITION ${STM32_HAL_DEVICE_DEFINITION})
-
-    # Define a few variables needed to compile HAL in a project
-    set_property(GLOBAL PROPERTY STM32_DEVICE_FAMILY "${STM32_FAMILY}")
-    set_property(GLOBAL PROPERTY STM32_HAL_DEVICE_DEFINITION "${STM32_HAL_DEVICE_DEFINITION}")
-ENDFUNCTION()

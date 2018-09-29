@@ -1,14 +1,7 @@
-# SET(CMAKE_C_FLAGS "-mthumb -fno-builtin -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=softfp -Wall -std=gnu99 -ffunction-sections -fdata-sections -fomit-frame-pointer -mabi=aapcs -fno-unroll-loops -ffast-math -ftree-vectorize" CACHE INTERNAL "c compiler flags")
-# SET(CMAKE_CXX_FLAGS "-mthumb -fno-builtin -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=softfp -Wall -std=c++11 -ffunction-sections -fdata-sections -fomit-frame-pointer -mabi=aapcs -fno-unroll-loops -ffast-math -ftree-vectorize" CACHE INTERNAL "cxx compiler flags")
-# SET(CMAKE_ASM_FLAGS "-mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=softfp -x assembler-with-cpp" CACHE INTERNAL "asm compiler flags")
+set(STM32_CHIP_TYPES 405xx 415xx 407xx 417xx 427xx 437xx 429xx 439xx 446xx 401xC 401xE 411xE CACHE INTERNAL "stm32f4 chip types")
+set(STM32_CODES "405.." "415.." "407.." "417.." "427.." "437.." "429.." "439.." "446.." "401.[CB]" "401.[ED]" "411.[CE]")
 
-# SET(CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections -mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=softfp -mabi=aapcs" CACHE INTERNAL "executable linker flags")
-# SET(CMAKE_MODULE_LINKER_FLAGS "-mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=softfp -mabi=aapcs" CACHE INTERNAL "module linker flags")
-# SET(CMAKE_SHARED_LINKER_FLAGS "-mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=softfp -mabi=aapcs" CACHE INTERNAL "shared linker flags")
-SET(STM32_CHIP_TYPES 405xx 415xx 407xx 417xx 427xx 437xx 429xx 439xx 446xx 401xC 401xE 411xE CACHE INTERNAL "stm32f4 chip types")
-SET(STM32_CODES "405.." "415.." "407.." "417.." "427.." "437.." "429.." "439.." "446.." "401.[CB]" "401.[ED]" "411.[CE]")
-
-set(STM32F4_COMPILE_OPTIONS
+set(STM32F4_COMPILER_OPTIONS
     -fno-common
     -fmessage-length=0
     -fno-exceptions
@@ -20,29 +13,39 @@ set(STM32F4_COMPILE_OPTIONS
     -mfloat-abi=hard
     -mfpu=fpv4-sp-d16
 )
-set_property(GLOBAL PROPERTY STM32_COMPILER_OPTIONS ${STM32F4_COMPILE_OPTIONS})
 
-MACRO(STM32_GET_CHIP_TYPE CHIP CHIP_TYPE)
-    STRING(REGEX REPLACE "^[sS][tT][mM]32[fF](4[01234][15679].[BCEGI]).*$" "\\1" STM32_CODE ${CHIP})
-    SET(INDEX 0)
-    FOREACH(C_TYPE ${STM32_CHIP_TYPES})
-        LIST(GET STM32_CODES ${INDEX} CHIP_TYPE_REGEXP)
-        IF(STM32_CODE MATCHES ${CHIP_TYPE_REGEXP})
-            SET(RESULT_TYPE ${C_TYPE})
-        ENDIF()
-        MATH(EXPR INDEX "${INDEX}+1")
-    ENDFOREACH()
-    SET(${CHIP_TYPE} ${RESULT_TYPE})
+set(STM32F4_COMPILER_DEFINITIONS
+    -DSTM32F4
+    -DUSE_FULL_LL_DRIVER
+)
 
-    if(NOT ${CHIP_TYPE} OR ${CHIP_TYPE} STREQUAL "")
-        MESSAGE(FATAL_ERROR "Invalid/unsupported STM32F4 chip type")
+# --------------------------------------
+# Derive the chip type from the full chip name
+# --------------------------------------
+function(STM32F4_GET_CHIP_TYPE CHIP CHIP_TYPE)
+    set(INDEX 0)
+    string(REGEX REPLACE "^[sS][tT][mM]32[fF](4[01234][15679].[BCEGI]).*$" "\\1" STM32_CODE ${CHIP})
+    
+    # Search through the available chip types
+    foreach(C_TYPE ${STM32_CHIP_TYPES})
+        list(GET STM32_CODES ${INDEX} CHIP_TYPE_REGEXP)
+
+        if(STM32_CODE MATCHES ${CHIP_TYPE_REGEXP})
+            set(FOUND_CHIP_TYPE ${C_TYPE})
+        endif()
+
+        math(EXPR INDEX "${INDEX}+1")
+    endforeach()
+
+    # Quick check to make sure we have a valid value
+    if("${FOUND_CHIP_TYPE}" STREQUAL "")
+        message(FATAL_ERROR "Invalid/unsupported STM32F4 chip type")
     else()
-        MESSAGE(STATUS "Found supported STM32F4 chip type: ${RESULT_TYPE}")
+        set(${CHIP_TYPE} ${FOUND_CHIP_TYPE} PARENT_SCOPE)
     endif()
+endfunction()
 
-ENDMACRO()
-
-MACRO(STM32_GET_CHIP_PARAMETERS CHIP FLASH_SIZE RAM_SIZE CCRAM_SIZE)
+function(STM32F4_GET_CHIP_PARAMETERS CHIP FLASH_SIZE RAM_SIZE CCRAM_SIZE)
     STRING(REGEX REPLACE "^[sS][tT][mM]32[fF](4[01234][15679].[BCEGI]).*$" "\\1" STM32_CODE ${CHIP})
     STRING(REGEX REPLACE "^[sS][tT][mM]32[fF]4[01234][15679].([BCEGI]).*$" "\\1" STM32_SIZE_CODE ${CHIP})
     
@@ -58,7 +61,7 @@ MACRO(STM32_GET_CHIP_PARAMETERS CHIP FLASH_SIZE RAM_SIZE CCRAM_SIZE)
         SET(FLASH "2048K")
     ENDIF()
     
-    STM32_GET_CHIP_TYPE(${CHIP} TYPE)
+    STM32F4_GET_CHIP_TYPE(${CHIP} TYPE)
     
     IF(${TYPE} STREQUAL "401xC")
         SET(RAM "64K")
@@ -86,22 +89,128 @@ MACRO(STM32_GET_CHIP_PARAMETERS CHIP FLASH_SIZE RAM_SIZE CCRAM_SIZE)
         SET(RAM "128K")
     ENDIF()
     
-    SET(${FLASH_SIZE} ${FLASH})
-    SET(${RAM_SIZE} ${RAM})
-    SET(${CCRAM_SIZE} "64K")
-ENDMACRO()
+    # Assign the parent scope variable with the updated value
+    SET(${FLASH_SIZE} ${FLASH} PARENT_SCOPE)
+    SET(${RAM_SIZE} ${RAM} PARENT_SCOPE)
+    SET(${CCRAM_SIZE} "64K" PARENT_SCOPE)
+endfunction()
 
-FUNCTION(STM32_SET_CHIP_DEFINITIONS TARGET CHIP_TYPE)
-    LIST(FIND STM32_CHIP_TYPES ${CHIP_TYPE} TYPE_INDEX)
-    IF(TYPE_INDEX EQUAL -1)
-        MESSAGE(FATAL_ERROR "Invalid/unsupported STM32F4 chip type: ${CHIP_TYPE}")
-    ENDIF()
-    GET_TARGET_PROPERTY(TARGET_DEFS ${TARGET} COMPILE_DEFINITIONS)
-    IF(TARGET_DEFS)
-        SET(TARGET_DEFS "STM32F4;STM32F${CHIP_TYPE};${TARGET_DEFS}")
-    ELSE()
-        SET(TARGET_DEFS "STM32F4;STM32F${CHIP_TYPE}")
-    ENDIF()
+# --------------------------------------
+# Add compiler options to a target
+# --------------------------------------
+function(STM32F4_SET_TARGET_COMPILE_OPTIONS TARGET)
+    target_compile_options(${TARGET} PUBLIC ${STM32F4_COMPILER_OPTIONS})
+    target_compile_options(${TARGET} PUBLIC $<$<CONFIG:DEBUG>:-ggdb -Og>)
+    target_compile_options(${TARGET} PUBLIC $<$<CONFIG:RELEASE>:-O3>)
+    target_compile_options(${TARGET} PRIVATE --std=gnu11)
+endfunction()
+
+# --------------------------------------
+# Add public compiler definitions to a target
+# --------------------------------------
+function(STM32F4_SET_TARGET_COMPILE_DEFINITIONS TARGET CHIP)
+    # Find the correct chip type so that the HAL knows what device to compile for
+    STM32F4_GET_CHIP_TYPE(${CHIP} PROJECT_CHIP_TYPE)
+
+    # Append some new definitions
+    set(STM32F4_COMPILER_DEFINITIONS ${STM32F4_COMPILER_DEFINITIONS}
+        -DSTM32F${PROJECT_CHIP_TYPE} 
+
+        # Do not add -D flag because these apparently expand AFTER being parsed by target_compile_definitions
+        $<$<CONFIG:DEBUG>:DEBUG_DEFAULT_INTERRUPT_HANDLERS>
+        $<$<CONFIG:RELEASE>:>
+    )
+
+    # Add the definitions to the target
+    target_compile_definitions(${TARGET} PUBLIC ${STM32F4_COMPILER_DEFINITIONS})
+endfunction()
+
+# --------------------------------------
+# Generates a target to build each one of the supported devices in debug and release mode
+# --------------------------------------
+function(STM32F4_GENERATE_ALL_TARGETS ROOT_DIR SRC_FILES BUILD_INC_DIRS INSTALL_INC_DIRS)
+    set(RELEASE_TARGETS "")
+    set(DEBUG_TARGETS "")
+
+    # --------------------------------------
+    # Generate a debug and release target for each supported chip
+    # --------------------------------------
+    foreach(CHIP_TYPE ${STM32_CHIP_TYPES})
+        set(TARGET_CHIP "stm32f${CHIP_TYPE}")
+        set(DEBUG_TARGET "${TARGET_CHIP}_${CMAKE_DEBUG_POSTFIX}")
+        set(RELEASE_TARGET "${TARGET_CHIP}_${CMAKE_RELEASE_POSTFIX}")
+
+        # Device specific .c files 
+        set(DEV_SRC_FILES 
+            "${ROOT_DIR}/Device/sys/system_stm32f4xx.c"
+            "${ROOT_DIR}/Device/startup/startup_${TARGET_CHIP}.c"
+        )
+
+        # --------------------------------------
+        # Add general version of the library and export the target so another project can
+        # import it and all its configurations.
+        # --------------------------------------
+        add_library(${TARGET_CHIP} STATIC ${SRC_FILES} ${DEV_SRC_FILES})
         
-    SET_TARGET_PROPERTIES(${TARGET} PROPERTIES COMPILE_DEFINITIONS "${TARGET_DEFS}")
-ENDFUNCTION()
+        target_include_directories(${TARGET_CHIP} PRIVATE ${BUILD_INC_DIRS})
+        target_include_directories(${TARGET_CHIP} INTERFACE
+            "$<BUILD_INTERFACE:${BUILD_INC_DIRS}>"
+            "$<INSTALL_INTERFACE:${INSTALL_INC_DIRS}>"
+        )
+
+        STM32F4_SET_TARGET_COMPILE_OPTIONS(${TARGET_CHIP})
+        STM32F4_SET_TARGET_COMPILE_DEFINITIONS(${TARGET_CHIP} ${TARGET_CHIP})
+
+        install(TARGETS ${TARGET_CHIP} DESTINATION ${INSTALL_CMAKE_DIR} EXPORT FindSTM32F4_HAL)
+
+        # install(TARGETS ${TARGET_CHIP} 
+        #         DESTINATION ${INSTALL_CMAKE_DIR}
+        #         CONFIGURATIONS Release
+        #         EXPORT FindSTM32F4_HAL_Release)
+
+        # --------------------------------------
+        # Add explicit debug/release targets for local builds (can't be exported)
+        # --------------------------------------
+        list(APPEND DEBUG_TARGETS "${DEBUG_TARGET}")
+        add_custom_target("${DEBUG_TARGET}"
+            COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Debug ${CMAKE_SOURCE_DIR}
+            COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${TARGET_CHIP}
+            COMMENT "Creating ${TARGET_CHIP} in debug mode."
+        )
+        
+        list(APPEND RELEASE_TARGETS "${RELEASE_TARGET}")
+        add_custom_target("${RELEASE_TARGET}"
+            COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Release ${CMAKE_SOURCE_DIR}
+            COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${TARGET_CHIP}
+            COMMENT "Creating ${TARGET_CHIP} in release mode."
+        )
+    endforeach()
+
+    install(EXPORT FindSTM32F4_HAL DESTINATION ${INSTALL_CMAKE_DIR})
+    # install(EXPORT FindSTM32F4_HAL_Release DESTINATION ${INSTALL_CMAKE_DIR})
+
+    # --------------------------------------
+    # Adds two explicit targets that build all the supported debug/release targets
+    # --------------------------------------
+    if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
+        set(BUILD_CMD "make")
+    elseif(CMAKE_GENERATOR STREQUAL "MinGW Makefiles")
+        set(BUILD_CMD "mingw32-make.exe")
+    else()
+        message(STATUS "Unsupported generator [${CMAKE_GENERATOR}] for generating all-* targets")
+    endif()
+
+    if(BUILD_CMD)
+        add_custom_target(all-debug
+            COMMAND ${BUILD_CMD} ${DEBUG_TARGETS}
+            COMMENT "Building all STM32F4 targets in debug mode."
+        )
+
+        add_custom_target(all-release
+            COMMAND ${BUILD_CMD} ${RELEASE_TARGETS}
+            COMMENT "Building all STM32F4 targets in release mode."
+        )
+    endif()
+    
+endfunction()
+
