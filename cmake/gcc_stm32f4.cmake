@@ -45,6 +45,9 @@ function(STM32F4_GET_CHIP_TYPE CHIP CHIP_TYPE)
     endif()
 endfunction()
 
+# --------------------------------------
+# Derive a few chip parameters
+# --------------------------------------
 function(STM32F4_GET_CHIP_PARAMETERS CHIP FLASH_SIZE RAM_SIZE CCRAM_SIZE)
     STRING(REGEX REPLACE "^[sS][tT][mM]32[fF](4[01234][15679].[BCEGI]).*$" "\\1" STM32_CODE ${CHIP})
     STRING(REGEX REPLACE "^[sS][tT][mM]32[fF]4[01234][15679].([BCEGI]).*$" "\\1" STM32_SIZE_CODE ${CHIP})
@@ -129,16 +132,18 @@ endfunction()
 # Generates a target to build each one of the supported devices in debug and release mode
 # --------------------------------------
 function(STM32F4_GENERATE_ALL_TARGETS ROOT_DIR SRC_FILES BUILD_INC_DIRS INSTALL_INC_DIRS)
+    # Keep track of target names so that the all-* custom target can be generated
     set(RELEASE_TARGETS "")
     set(DEBUG_TARGETS "")
 
     # --------------------------------------
-    # Generate a debug and release target for each supported chip
+    # Generate a generalized, debug, and release targets for each supported chip
     # --------------------------------------
     foreach(CHIP_TYPE ${STM32_CHIP_TYPES})
         set(TARGET_CHIP "stm32f${CHIP_TYPE}")
         set(DEBUG_TARGET "${TARGET_CHIP}_${CMAKE_DEBUG_POSTFIX}")
         set(RELEASE_TARGET "${TARGET_CHIP}_${CMAKE_RELEASE_POSTFIX}")
+        set(TARGET_EXPORT "FindSTM32F4_HAL")
 
         # Device specific .c files 
         set(DEV_SRC_FILES 
@@ -161,12 +166,14 @@ function(STM32F4_GENERATE_ALL_TARGETS ROOT_DIR SRC_FILES BUILD_INC_DIRS INSTALL_
         STM32F4_SET_TARGET_COMPILE_OPTIONS(${TARGET_CHIP})
         STM32F4_SET_TARGET_COMPILE_DEFINITIONS(${TARGET_CHIP} ${TARGET_CHIP})
 
-        install(TARGETS ${TARGET_CHIP} DESTINATION ${INSTALL_CMAKE_DIR} EXPORT FindSTM32F4_HAL)
-
-        # install(TARGETS ${TARGET_CHIP} 
-        #         DESTINATION ${INSTALL_CMAKE_DIR}
-        #         CONFIGURATIONS Release
-        #         EXPORT FindSTM32F4_HAL_Release)
+        # --------------------------------------
+        # Exports the targets into the TARGET_EXPORT filename. For debug and release builds, CMake
+        # will auto generate additional target properties that cause the appropriat static library
+        # linkage at build time. See TARGET_EXPORT-debug.cmake in the install directory for examples.
+        # --------------------------------------
+        install(TARGETS ${TARGET_CHIP} EXPORT ${TARGET_EXPORT}
+                DESTINATION ${INSTALL_CMAKE_DIR} 
+                INCLUDES DESTINATION "${INSTALL_INC_DIRS}")
 
         # --------------------------------------
         # Add explicit debug/release targets for local builds (can't be exported)
@@ -186,11 +193,12 @@ function(STM32F4_GENERATE_ALL_TARGETS ROOT_DIR SRC_FILES BUILD_INC_DIRS INSTALL_
         )
     endforeach()
 
-    install(EXPORT FindSTM32F4_HAL DESTINATION ${INSTALL_CMAKE_DIR})
-    # install(EXPORT FindSTM32F4_HAL_Release DESTINATION ${INSTALL_CMAKE_DIR})
+    
+    install(EXPORT ${TARGET_EXPORT} DESTINATION ${INSTALL_CMAKE_DIR})
+    
 
     # --------------------------------------
-    # Adds two explicit targets that build all the supported debug/release targets
+    # Adds two explicit targets that build all the supported debug/release targets locally
     # --------------------------------------
     if(CMAKE_GENERATOR STREQUAL "Unix Makefiles")
         set(BUILD_CMD "make")
