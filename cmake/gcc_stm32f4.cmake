@@ -4,7 +4,6 @@ set(STM32_CODES "405.." "415.." "407.." "417.." "427.." "437.." "429.." "439.." 
 set(STM32F4_COMPILER_OPTIONS
     -fno-common
     -fmessage-length=0
-    -fno-exceptions
     -ffunction-sections
     -fdata-sections
     -Wall
@@ -105,7 +104,7 @@ function(STM32F4_SET_TARGET_COMPILE_OPTIONS TARGET)
     target_compile_options(${TARGET} PUBLIC ${STM32F4_COMPILER_OPTIONS})
     target_compile_options(${TARGET} PUBLIC $<$<CONFIG:DEBUG>:-ggdb -Og>)
     target_compile_options(${TARGET} PUBLIC $<$<CONFIG:RELEASE>:-O3>)
-    target_compile_options(${TARGET} PRIVATE --std=gnu11)
+    target_compile_options(${TARGET} PRIVATE --std=gnu11 -fno-exceptions)
 endfunction()
 
 # --------------------------------------
